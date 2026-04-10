@@ -1,66 +1,5 @@
 """
 Library for scoring sailing events.
-
-In a sailing event,
-the competition consists Boats sailing a Series of Races.
-The sailing instructions may change how scoring is done,
-so the scoring system is a property of the series.
-The default scoring system is RRS Appendix A ('RRS-A')
-
->>> series = {
-...     'races': [],
-...     'options': {
-...         'scoring-system': 'RRS-A'    # This is the default.
-...     }
-... }
-
-The scoring system has three distinctive features:
-
--   the lowest score wins
-
--   scoring codes (other racing sports have these
-    but sailing has special ones of its own)
-
--   discards (also not unique to sailing, but uncommon)
-
-Discards mean that in a series with one race and one boat 'A':
-
->>> series = {
-...     'races': [
-...         {'scores': {'A': 1}}
-...     ]
-... }
-
-When the scores are calculated, the worst score is excluded
-*even if there was only one race*.
-
->>> results = score(series)
->>> results['races'][0]['scores']['A']
-{'score': 1, 'include': False}
->>> results['boats']['A']['score']
-0
-
-If a boat has two identical worst scores, the first one is excluded.
-
->>> results = score({
-...     'races': [
-...         {'scores': {'A': 1}},
-...         {'scores': {'A': 1}},
-...     ]
-... })
->>> [r['scores']['A']['include'] for r in results['races']]
-[False, True]
-
-
-In a more realistic series, with two boats,
-when the scores are calculated,
-the boat with the lowest score also has the best (lowest) rank.
-
->>> series = {'races': [{'scores': {'A': 1, 'B': 2}}]}
->>> results = score(series)
->>> {results['boats'][boat]['rank']: boat for boat in results['boats']}
-{1: 'A', 2: 'B'}
-
 """
 
 
@@ -88,13 +27,28 @@ class Series:
             self.races.append(race_result)
 
             for boat in self.boats:
-                boat_race_score = race['scores'].get(boat, self.dnc_score())
-                # A score has a number of points
-                # and a flag that says whether it should be included in scoring.
-                # All races are included for now,
-                # but this will change later.
+                boat_race_score = race['scores'].get(boat, 'DNC')
+
+                # A score has:
+                #   -   a number of points
+                #   -   an optional code
+                #   -   a flag that says whether it should be included
+                #       in scoring.
+                #
+                # All races are initially marked as included,
+                # but may be excluded when the series is scored.
+
+                try:
+                    code = ''
+                    # TODO: should be to nearest 0.1 points
+                    points = int(boat_race_score)
+                except ValueError:
+                    code = boat_race_score
+                    points = self.dnc_score()
+
                 race_result['scores'][boat] = {
-                    'score': boat_race_score,
+                    'code': code,
+                    'score': points,
                     'include': True,
                 }
 
@@ -146,7 +100,8 @@ class Series:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod(
+    doctest.testfile(
+        "readme.md",
         optionflags=(
             doctest.NORMALIZE_WHITESPACE
             | doctest.ELLIPSIS

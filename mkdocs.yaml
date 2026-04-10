@@ -1,0 +1,20 @@
+site_name: RRS Library
+
+theme:
+  name: material
+  icon:
+      logo: material/sail-boat
+  font:
+    text: Red Hat Text
+    code: Red Hat Mono
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  Home: index.md
