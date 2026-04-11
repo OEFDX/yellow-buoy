@@ -62,14 +62,39 @@ class Series:
             self._calculate_series_scores(boat)
 
     def rank_boats(self):
-        """Rank the boats, breaking any ties in scores according to RRS A."""
+        """Rank the boats, breaking any ties in scores according to RRS A8."""
         ranked_boats = sorted(
             self.boats,
-            key=lambda boat: self.boats[boat]['score']
+            key=self._ranking_key
         )
 
         for rank, boat in enumerate(ranked_boats, start=1):
             self.boats[boat]['rank'] = rank
+
+    # TODO: make this ranking lazy
+    #       so the best result key
+    #       and the count-back key
+    #       are only computed if there is a tie.
+    def _ranking_key(self, boat):
+        score_key = self.boats[boat]['score']
+
+        # This implements RRS A8.1
+        # (tie breaking by best results)
+        best_result_key = sorted(
+            race['scores'][boat]['score']
+            for race in self.races
+            if race['scores'][boat]['include']
+        )
+
+        # This implements RRS A8.2
+        # (tie breaking by count-back)
+        countback_key = [
+            race['scores'][boat]['score']
+            for race in self.races[::-1]
+            # N.B. the rules say excluded scores are _included_ here.
+        ]
+
+        return (score_key, best_result_key, countback_key)
 
     def _add_unseen_boats(self, races):
         for race in races:
