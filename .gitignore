@@ -1,3 +1,6 @@
+# Built documentation
+site/
+
 # Vim temporary files
 *.sw[op]
 
