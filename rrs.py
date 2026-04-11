@@ -117,7 +117,12 @@ class Series:
         Appendix A states that the worst result is excluded
         unless the SIs make some other provision.
         """
-        scores = [race['scores'][boat] for race in self.races]
+        scores = [
+            race['scores'][boat]
+            for race in self.races
+            # Only consider excludable scores.
+            if race['scores'][boat]['code'] != 'DNE'
+        ]
 
         # The max() function returns the earliest of any equal maxima.
         # This is consistent with the RRS, which says the earliest of

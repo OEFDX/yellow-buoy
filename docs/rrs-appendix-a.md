@@ -72,28 +72,62 @@ the boat with the lowest score also has the best (lowest) rank.
 ```
 
 ## Scoring codes (RRS A10)
+
 Scoring codes are commonly used for a variety of reasons.
+Any result that is not a simple ‘finish’ is recorded using a code.
+
+### Did Not Start (DNS) / Finish (DNF) / etc.
+
 Most scoring codes produce the same number of points:
-the number of boats in the series, plus one.
+the number of boats in the series, plus 1.
 This is the case for the most obvious code: ‘DNF’ (Did Not Finish).
+Here, in a series with 2 boats, B’s _DNF_ is worth 3 points.
 
 ```python
 >>> series = {'races': [{'scores': {'A': 1, 'B': 'DNF'}}]}
 >>> results = rrs.score(series)
->>> results['races'][0]['scores']['B']['code']
-'DNF'
->>> results['races'][0]['scores']['B']['score']
-3
+>>> b_score = results['races'][0]['scores']['B']
+>>> b_score['code'], b_score['score']
+('DNF', 3)
 
 ```
 
 ### Disqualification Not Excludable (DNE)
 
-!!! warning "Not yet implemented"
-    DNE is a penalty for serious rules infractions,
-    typically to do with sportsmanship.
-    Unlike any other scoring code,
-    it cannot be excluded from a boat's results.
+The _DNE_ scoring code stands for _Disqualification Not Excludable_
+and is only used in very limited circumstances.
+It is worth the same number of points as any other disqualification
+(_DSQ, OCS_ etc),
+but as the name implies, a _DNE_ score is never excluded from a boat’s
+series score.
+
+```python
+>>> series = {
+...     'races': [
+...         {'scores': {'A': 'DNE'}},
+...         {'scores': {'A': 1}},
+...     ]
+... }
+>>> results = rrs.score(series)
+
+```
+
+In the example above, boat _A_ received a _DNE_ in the first race
+and a _1_ in the second.
+The _DNE_ cannot be excluded,
+so the _1_ is excluded instead
+and the series score is 2 points for the _DNE_
+(because there is only one boat).
+
+```python
+>>> results['races'][0]['scores']['A']['include']
+True
+>>> results['races'][1]['scores']['A']['include']
+False
+>>> results['boats']['A']['score']
+2
+
+```
 
 ## Series score tie-breaking (RRS A8)
 
