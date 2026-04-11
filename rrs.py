@@ -4,7 +4,7 @@ Library for scoring sailing events.
 
 
 def score(series):
-    result = Series()
+    result = Series(series.get('scoring-system'))
 
     result.add_races(series['races'])
     result.score_boats()
@@ -14,7 +14,8 @@ def score(series):
 
 
 class Series:
-    def __init__(self):
+    def __init__(self, scoring_system=None):
+        self.scoring_system = scoring_system if scoring_system else {}
         self.boats = {}
         self.races = []
 
@@ -44,7 +45,10 @@ class Series:
                     points = int(boat_race_score)
                 except ValueError:
                     code = boat_race_score
-                    points = self.dnc_score()
+                    if code == 'DNC':
+                        points = self.dnc_score()
+                    else:
+                        points = self.dnf_score(race)
 
                 race_result['scores'][boat] = {
                     'code': code,
@@ -54,6 +58,12 @@ class Series:
 
     def dnc_score(self):
         return len(self.boats) + 1
+
+    def dnf_score(self, race):
+        if self.scoring_system.get('rrs-a5.3'):
+            return len(race['scores']) + 1
+
+        return self.dnc_score()
 
     def score_boats(self):
         """Score the series."""
@@ -125,11 +135,19 @@ class Series:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testfile(
-        "readme.md",
-        optionflags=(
-            doctest.NORMALIZE_WHITESPACE
-            | doctest.ELLIPSIS
-            | doctest.REPORT_CDIFF
-        ),
-    )
+
+    test_paths = [
+        # "docs/index.md",
+        "docs/rrs-appendix-a.md",
+        "docs/rrs-appendix-a-options.md",
+    ]
+
+    for path in test_paths:
+        doctest.testfile(
+            path,
+            optionflags=(
+                doctest.NORMALIZE_WHITESPACE
+                | doctest.ELLIPSIS
+                | doctest.REPORT_CDIFF
+            ),
+        )

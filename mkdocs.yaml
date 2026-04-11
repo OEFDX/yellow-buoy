@@ -17,4 +17,7 @@ markdown_extensions:
   - pymdownx.superfences
 
 nav:
-  Home: index.md
+  - Home: index.md
+  - RRS Appendix A:
+    - How it works: rrs-appendix-a.md
+    - Optional features: rrs-appendix-a-options.md
