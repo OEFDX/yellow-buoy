@@ -5,7 +5,25 @@
 
 -->
 
+Optional features are used by
+setting items in the `'scoring-system'` dict
+within a series dict:
+
+```python
+{
+    'scoring-system': {
+        'feature': 'value',
+    },
+    'races': [...],
+}
+```
+
 ## Long series (RRS A5.3)
+
+!!! note "Usage"
+    ```python
+    'rrs-a5.3': True
+    ```
 
 Sometimes a series might run over multiple separate sessions
 (e.g. every Sunday afternoon in Summer).
