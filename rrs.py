@@ -47,6 +47,9 @@ class Series:
                     code = boat_race_score
                     if code == 'DNC':
                         points = self.dnc_score()
+                    elif code.endswith("+SCP"):
+                        dnf = self.dnf_score(race)
+                        points = self.scp_score(code, dnf)
                     else:
                         points = self.dnf_score(race)
 
@@ -64,6 +67,15 @@ class Series:
             return len(race['scores']) + 1
 
         return self.dnc_score()
+
+    def scp_score(self, score_code, dnf_score):
+        """Apply scoring penalties."""
+        parts = score_code.split("+")
+        place = int(parts[0])
+        scp_count = parts.count("SCP")
+        penalty = dnf_score * 0.2
+        total_penalty = scp_count * penalty
+        return min(place + total_penalty, dnf_score)
 
     def score_boats(self):
         """Score the series."""

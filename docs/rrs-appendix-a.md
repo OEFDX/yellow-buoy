@@ -129,6 +129,64 @@ False
 
 ```
 
+### Scoring Penalty (SCP)
+
+The _SCP_ scoring code stands for _Scoring Penalty imposed_
+and is only used if the Notice of Race or the Sailing Instructions
+state that it is available.
+The default penalty is for 20% of the score for _DNF_ to be added
+to the boat's score (to the nearest 0.1 points),
+except that the final score shall not be greater than _DNF_.
+
+For example, in a series with 5 boats,
+the DNF score is `6`,
+so the scoring penalty is `6 × 20% = 1.2` additional points.
+If a boat takes a scoring penalty but finishes first,
+its score is `2.2` points.
+
+```python
+>>> series = {
+...     'races': [{'scores': {
+...         'A': '1+SCP',
+...         'B': 2,
+...         'C': 3,
+...         'D': 4,
+...         'E': 5,
+...     }}]
+... }
+>>> results = rrs.score(series)
+>>> results['races'][0]['scores']['A']['score']
+2.2
+
+```
+
+However, if a boat takes a scoring penalty and finishes fifth,
+the score with a penalty would be `6.2`.
+This is greater than the score for _DNF_ so the final score
+is capped at `6` points:
+
+```python
+>>> series['races'][0]['scores']['E'] = '5+SCP'
+>>> results = rrs.score(series)
+>>> results['races'][0]['scores']['E']['score']
+6
+
+```
+
+The rules do not specify explicitly
+what happens when a boat takes scoring penalties
+in separate incidents.
+This library assumes that multiple penalties can be applied,
+always subject to the maximum of _DNF_:
+
+```python
+>>> series['races'][0]['scores']['A'] = '1+SCP+SCP'
+>>> results = rrs.score(series)
+>>> results['races'][0]['scores']['A']['score']
+3.4000000000000004
+
+```
+
 ## Series score tie-breaking (RRS A8)
 
 There are two stages to tie-breaking in the RRS Appendix A scoring system.
