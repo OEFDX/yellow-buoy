@@ -55,9 +55,8 @@ class Series:
 
                 try:
                     code = ''
-                    # TODO: should be to nearest 0.1 points
-                    points = int(boat_race_score)
-                except ValueError:
+                    points = _pt(boat_race_score)
+                except decimal.InvalidOperation:
                     code = boat_race_score
                     if code == 'DNC':
                         points = self.dnc_score()
@@ -74,11 +73,11 @@ class Series:
                 }
 
     def dnc_score(self):
-        return len(self.boats) + 1
+        return _pt(len(self.boats) + 1)
 
     def dnf_score(self, race):
         if self.scoring_system.get('rrs-a5.3'):
-            return len(race['scores']) + 1
+            return _pt(len(race['scores']) + 1)
 
         return self.dnc_score()
 
@@ -160,11 +159,15 @@ class Series:
         worst_score['include'] = False
 
     def _calculate_series_scores(self, boat):
-        self.boats[boat]['score'] = sum(
+        # Pass through _pt() because
+        # if there are no included results
+        # (which can happen after the first race of a series)
+        # then sum() returns an int instead of a Decimal.
+        self.boats[boat]['score'] = _pt(sum(
             race['scores'][boat]['score']
             for race in self.races
             if race['scores'][boat]['include']
-        )
+        ))
 
 
 if __name__ == "__main__":

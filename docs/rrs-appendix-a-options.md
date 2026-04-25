@@ -66,9 +66,9 @@ and _C_ scores _DNC (4)_ in the second race.
 >>> results = rrs.score(series)
 >>> race_2_scores = results['races'][1]['scores']
 >>> race_2_scores['B']['score']
-3
+Decimal('3.0')
 >>> race_2_scores['C']['score']
-4
+Decimal('4.0')
 
 ```
 

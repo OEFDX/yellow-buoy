@@ -35,11 +35,11 @@ When the scores are calculated, the worst score is excluded
 >>> results = rrs.score(series)
 >>> race_1_boat_A = results['races'][0]['scores']['A']
 >>> race_1_boat_A['score']
-1
+Decimal('1.0')
 >>> race_1_boat_A['include']
 False
 >>> results['boats']['A']['score']
-0
+Decimal('0.0')
 
 ```
 
@@ -88,7 +88,7 @@ Here, in a series with 2 boats, B’s _DNF_ is worth 3 points.
 >>> results = rrs.score(series)
 >>> b_score = results['races'][0]['scores']['B']
 >>> b_score['code'], b_score['score']
-('DNF', 3)
+('DNF', Decimal('3.0'))
 
 ```
 
@@ -125,7 +125,7 @@ True
 >>> results['races'][1]['scores']['A']['include']
 False
 >>> results['boats']['A']['score']
-2
+Decimal('2.0')
 
 ```
 
@@ -220,11 +220,11 @@ Take the following example:
 ```python
 >>> result = rrs.score(series)
 >>> result['boats']['A']['score']
-2
+Decimal('2.0')
 >>> result['boats']['B']['score']
-4
+Decimal('4.0')
 >>> result['boats']['C']['score']
-4
+Decimal('4.0')
 
 ```
 
@@ -278,9 +278,9 @@ which means that RRS 8.1 does not break the tie.
 ```python
 >>> result = rrs.score(series)
 >>> result['boats']['A']['score']
-3
+Decimal('3.0')
 >>> result['boats']['B']['score']
-3
+Decimal('3.0')
 
 ```
 
