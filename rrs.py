@@ -2,6 +2,20 @@
 Library for scoring sailing events.
 """
 
+import decimal
+
+# Scores are always rounded to the nearest
+# 0.1 points after calculation.
+_SCORE_CTX = decimal.Context(rounding=decimal.ROUND_HALF_UP)
+_SCORE_PREC = decimal.Decimal('0.1')
+
+def _pt(value):
+    """Get a Decimal number of points, quantised to nearest 0.1."""
+    return (
+        decimal.Decimal(value, context=_SCORE_CTX)
+        .quantize(_SCORE_PREC)
+    )
+
 
 def score(series):
     result = Series(series.get('scoring-system'))
@@ -73,9 +87,12 @@ class Series:
         parts = score_code.split("+")
         place = int(parts[0])
         scp_count = parts.count("SCP")
-        penalty = dnf_score * 0.2
+        penalty = _pt(dnf_score) * decimal.Decimal("0.2")
         total_penalty = scp_count * penalty
-        return min(place + total_penalty, dnf_score)
+        return min(
+            _pt(place + total_penalty),
+            _pt(dnf_score)
+        )
 
     def score_boats(self):
         """Score the series."""

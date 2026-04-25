@@ -156,7 +156,7 @@ its score is `2.2` points.
 ... }
 >>> results = rrs.score(series)
 >>> results['races'][0]['scores']['A']['score']
-2.2
+Decimal('2.2')
 
 ```
 
@@ -169,7 +169,7 @@ is capped at `6` points:
 >>> series['races'][0]['scores']['E'] = '5+SCP'
 >>> results = rrs.score(series)
 >>> results['races'][0]['scores']['E']['score']
-6
+Decimal('6.0')
 
 ```
 
@@ -183,7 +183,7 @@ always subject to the maximum of _DNF_:
 >>> series['races'][0]['scores']['A'] = '1+SCP+SCP'
 >>> results = rrs.score(series)
 >>> results['races'][0]['scores']['A']['score']
-3.4000000000000004
+Decimal('3.4')
 
 ```
 
