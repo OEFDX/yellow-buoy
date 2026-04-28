@@ -71,7 +71,7 @@ class Series:
 
         if code.endswith("+SCP"):
             parts = code.split("+")
-            place = int(parts[0])
+            place = parts[0]
             scp_count = parts.count("SCP")
             return (
                 SCP(self._current_race_context, place)
@@ -294,14 +294,18 @@ class DNE(NonFinish):
     code = "DNE"
 
 
-# Actually a kind of Finish, but not worth subclassing it.
-class SCP(Score):
+class SCP(Finish):
     """Scoring Penalty imposed."""
     code = "SCP"
 
-    def __init__(self, context, value):
-        super().__init__(context, value)
-        self._no_penalty_value = value
+    def __init__(self, context, place):
+        super().__init__(place)
+
+        # A Finish does not have a context,
+        # but an SCP needs a context to know how many points
+        # the penalty is worth.
+        self._context = context
+        self._no_penalty_value = self._value
         self._infringements = 0
 
     def for_infringements(self, n):
