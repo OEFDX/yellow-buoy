@@ -3,6 +3,8 @@ Library for scoring sailing events.
 """
 
 import decimal
+import functools
+import sys
 
 # Scores are always rounded to the nearest
 # 0.1 points after calculation.
@@ -18,7 +20,7 @@ def _pt(value):
 
 
 def score(series):
-    result = Series(series.get('scoring-system'))
+    result = Series(series.get('scoring-system', {}))
 
     result.add_races(series['races'])
     result.score_boats()
@@ -31,7 +33,10 @@ class Series:
     def __init__(self, scoring_system=None):
         self.scoring_system = scoring_system if scoring_system else {}
         self.boats = {}
+        self._series_context = SeriesContext(self.boats)
+
         self.races = []
+        self._current_race_context = None
 
     def add_races(self, races):
         """Add races and give unseen boats DNC scores in other races."""
@@ -40,62 +45,45 @@ class Series:
         for race in races:
             race_result = {'scores': {}}
             self.races.append(race_result)
+            self._current_race_context = RaceContext(race_result['scores'])
 
             for boat in self.boats:
-                boat_race_score = race['scores'].get(boat, 'DNC')
+                race_result['scores'][boat] = self.parse_score(
+                    race['scores'].get(boat, 'DNC')
+                )
 
-                # A score has:
-                #   -   a number of points
-                #   -   an optional code
-                #   -   a flag that says whether it should be included
-                #       in scoring.
-                #
-                # All races are initially marked as included,
-                # but may be excluded when the series is scored.
+    def parse_score(self, text):
+        """Parse a score from a string."""
+        try:
+            return Finish(text)
+        except ValueError:
+            code = text
 
-                try:
-                    code = ''
-                    points = _pt(boat_race_score)
-                except decimal.InvalidOperation:
-                    code = boat_race_score
-                    if code == 'DNC':
-                        points = self.dnc_score()
-                    elif code.endswith("+SCP"):
-                        dnf = self.dnf_score(race)
-                        points = self.scp_score(code, dnf)
-                    else:
-                        points = self.dnf_score(race)
+        if code == 'DNC':
+            # The context for a DNC is always the series.
+            return DNC(self._series_context)
 
-                race_result['scores'][boat] = {
-                    'code': code,
-                    'score': points,
-                    'include': True,
-                }
+        if code == "DNE":
+            return DNE(self._current_race_context)
 
-    def dnc_score(self):
-        return _pt(len(self.boats) + 1)
+        if code == "DNF":
+            return DNF(self._current_race_context)
 
-    def dnf_score(self, race):
-        if self.scoring_system.get('rrs-a5.3'):
-            return _pt(len(race['scores']) + 1)
+        if code.endswith("+SCP"):
+            parts = code.split("+")
+            place = int(parts[0])
+            scp_count = parts.count("SCP")
+            return (
+                SCP(self._current_race_context, place)
+                .for_infringements(scp_count)
+            )
 
-        return self.dnc_score()
-
-    def scp_score(self, score_code, dnf_score):
-        """Apply scoring penalties."""
-        parts = score_code.split("+")
-        place = int(parts[0])
-        scp_count = parts.count("SCP")
-        penalty = _pt(dnf_score) * decimal.Decimal("0.2")
-        total_penalty = scp_count * penalty
-        return min(
-            _pt(place + total_penalty),
-            _pt(dnf_score)
-        )
+        raise ValueError(f"unknown scoring code {code!r}")
 
     def score_boats(self):
         """Score the series."""
         for boat in self.boats:
+            self._realise_scores(boat)
             self._exclude_worst_scores(boat)
             self._calculate_series_scores(boat)
 
@@ -139,6 +127,10 @@ class Series:
             for boat in race['scores']:
                 self.boats.setdefault(boat, {})
 
+    def _realise_scores(self, boat):
+        for race in self.races:
+            race['scores'][boat].realise()
+
     def _exclude_worst_scores(self, boat):
         """Apply the RRS Appendix A exclusion rule.
 
@@ -168,6 +160,169 @@ class Series:
             for race in self.races
             if race['scores'][boat]['include']
         ))
+
+
+class ScoringContext:
+    """Provides the context for a score.
+
+    For example, a DNF may depend ons
+    the number of boats entered in the series,
+    or the number of boats entered in the race,
+    depending on the scoring system being used.
+    """
+
+    @property
+    def entry_count(self):
+        raise NotImplementedError
+
+
+class SeriesContext(ScoringContext):
+    def __init__(self, boats):
+        self._boats = boats
+
+    @property
+    def entry_count(self):
+        # TODO: number of boats that have entered one or more races?
+        return len(self._boats)
+
+
+class RaceContext(ScoringContext):
+    def __init__(self, scores):
+        # N.B. we do not 'own' this dict,
+        # we expect it to change over the context's lifetime.
+        self._scores = scores
+
+    @property
+    def entry_count(self):
+        return len([
+            None
+            for score in self._scores.values()
+            if score["code"] != "DNC"
+        ])
+
+
+@functools.total_ordering
+class Score:
+    code = ""
+
+    def __init__(self, context, value=None):
+        self._context = context
+        self._value = value
+        self._include = True
+
+    # TODO: should be temporary
+    def __getitem__(self, item):
+        if item == "code":
+            return self.code
+
+        if item == "score":
+            return self._value
+
+        if item == "include":
+            return self._include
+
+        raise KeyError
+
+    def get(self, item, default=None):
+        try:
+            return self[item]
+        except KeyError:
+            return default
+
+    # TODO: should be temporary
+    def __setitem__(self, item, value):
+        if item == "include":
+            self._include = value
+            return
+
+        raise KeyError(item)
+
+    # TODO: abstract method
+    def realise(self):
+        """Calculate the points value."""
+        raise KeyError(self.code)
+
+    def __eq__(self, other):
+        return self._value == other._value
+
+    def __lt__(self, other):
+        return self._value == other._value
+
+    def __repr__(self):
+        _repr = f"<{self.code}:{self._value}>"
+        if self._include:
+            return _repr
+
+        return f"({_repr})"
+
+
+class Finish(Score):
+    code = ""
+
+    def __init__(self, place):
+        # A Finish does not need a context
+        # because it does not depend on any properties
+        # of the series or the race.
+        try:
+            value = _pt(place)
+        except decimal.InvalidOperation:
+            raise ValueError("invalid finish score {place!r}")
+
+        super().__init__(None, value)
+
+    def realise(self):
+        # Do nothing because the value was set directly.
+        pass
+
+class NonFinish(Score):
+    def realise(self):
+        entries = self._context.entry_count
+        self._value = _pt(entries + 1)
+
+class DNC(NonFinish):
+    """Did Not Come to the starting area."""
+    code = "DNC"
+
+
+class DNF(NonFinish):
+    """Did Not Finish"""
+    code = "DNF"
+
+
+class DNE(NonFinish):
+    """Disqualification Not Excludable"""
+    code = "DNE"
+
+
+# Actually a kind of Finish, but not worth subclassing it.
+class SCP(Score):
+    """Scoring Penalty imposed."""
+    code = "SCP"
+
+    def __init__(self, context, value):
+        super().__init__(context, value)
+        self._no_penalty_value = value
+        self._infringements = 0
+
+    def for_infringements(self, n):
+        self._infringements = n
+        return self
+
+    def realise(self):
+        # TODO: use penalty value from scoring system info.
+        dnf = self._dnf_score()
+        penalty = dnf * decimal.Decimal("0.2")
+        total_penalty = _pt(self._infringements * penalty)
+
+        self._value = min(
+            self._no_penalty_value + total_penalty,
+            dnf
+        )
+
+    def _dnf_score(self):
+        dnf = DNF(self._context)
+        dnf.realise()
+        return dnf['score']
 
 
 if __name__ == "__main__":
