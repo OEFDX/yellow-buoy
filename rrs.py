@@ -142,14 +142,14 @@ class Series:
             race['scores'][boat]
             for race in self.races
             # Only consider excludable scores.
-            if race['scores'][boat]['code'] != 'DNE'
+            if race['scores'][boat].excludable
         ]
 
         # The max() function returns the earliest of any equal maxima.
         # This is consistent with the RRS, which says the earliest of
         # equal worst scores shall be discarded.
         worst_score = max(scores, key=lambda s: s['score'])
-        worst_score['include'] = False
+        worst_score.exclude()
 
     def _calculate_series_scores(self, boat):
         # Pass through _pt() because
@@ -206,6 +206,7 @@ class RaceContext(ScoringContext):
 @functools.total_ordering
 class Score(abc.ABC):
     code = ""
+    excludable = True
 
     def __init__(self, context, value=None):
         self._context = context
@@ -231,13 +232,13 @@ class Score(abc.ABC):
         except KeyError:
             return default
 
-    # TODO: should be temporary
-    def __setitem__(self, item, value):
-        if item == "include":
-            self._include = value
-            return
+    # TODO: should non-excludable scores even have an exclude() method?
+    def exclude(self):
+        if not self.excludable:
+            raise Exception(f"{self.code} score is not excludable")
 
-        raise KeyError(item)
+        self._include = False
+
 
     @abc.abstractmethod
     def realise(self):
@@ -300,6 +301,7 @@ class DNF(NonFinish):
 class DNE(NonFinish):
     """Disqualification Not Excludable"""
     code = "DNE"
+    excludable = False
 
 
 class SCP(Finish):
