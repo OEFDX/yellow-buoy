@@ -254,7 +254,7 @@ class Score(abc.ABC):
         return self._value == other._value
 
     def __repr__(self):
-        _repr = f"<{self.code}:{self._value}>"
+        _repr = f"{self.code}({self._value})"
         if self._include:
             return _repr
 
@@ -278,6 +278,9 @@ class Finish(Score):
     def realise(self):
         # Do nothing because the value was set directly.
         pass
+
+    def __repr__(self):
+        return str(self._value)
 
 class NonFinish(Score):
     def realise(self):
