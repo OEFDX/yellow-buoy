@@ -2,6 +2,7 @@
 Library for scoring sailing events.
 """
 
+import abc
 import decimal
 import functools
 import sys
@@ -162,16 +163,17 @@ class Series:
         ))
 
 
-class ScoringContext:
-    """Provides the context for a score.
+class ScoringContext(abc.ABC):
+    """Abstract base class. Provides the context for a score.
 
-    For example, a DNF may depend ons
+    For example, a DNF may depend on
     the number of boats entered in the series,
     or the number of boats entered in the race,
     depending on the scoring system being used.
     """
 
     @property
+    @abc.abstractmethod
     def entry_count(self):
         raise NotImplementedError
 
@@ -202,7 +204,7 @@ class RaceContext(ScoringContext):
 
 
 @functools.total_ordering
-class Score:
+class Score(abc.ABC):
     code = ""
 
     def __init__(self, context, value=None):
@@ -237,10 +239,13 @@ class Score:
 
         raise KeyError(item)
 
-    # TODO: abstract method
+    @abc.abstractmethod
     def realise(self):
-        """Calculate the points value."""
-        raise KeyError(self.code)
+        """Calculate the points value.
+
+        Subclasses overriding this method should set self._value.
+        """
+        raise NotImplementedError
 
     def __eq__(self, other):
         return self._value == other._value
