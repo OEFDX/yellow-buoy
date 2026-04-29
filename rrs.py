@@ -21,18 +21,17 @@ def _pt(value):
 
 
 def score(series):
-    result = Series(series.get('scoring-system', {}))
+    result = Series(ScoringSystem(None))
 
     result.add_races(series['races'])
-    result.score_boats()
-    result.rank_boats()
+    result.score_and_rank()
 
     return {'races': result.races, 'boats': result.boats}
 
 
 class Series:
-    def __init__(self, scoring_system=None):
-        self.scoring_system = scoring_system if scoring_system else {}
+    def __init__(self, scoring_system):
+        self._scoring_system = scoring_system
         self.boats = {}
         self._series_context = SeriesContext(self.boats)
 
@@ -52,6 +51,11 @@ class Series:
                 race_result['scores'][boat] = self.parse_score(
                     race['scores'].get(boat, 'DNC')
                 )
+
+    def _add_unseen_boats(self, races):
+        for race in races:
+            for boat in race['scores']:
+                self.boats.setdefault(boat, {})
 
     def parse_score(self, text):
         """Parse a score from a string."""
@@ -81,55 +85,31 @@ class Series:
 
         raise ValueError(f"unknown scoring code {code!r}")
 
-    def score_boats(self):
+    def score_and_rank(self):
         """Score the series."""
-        for boat in self.boats:
+        self._scoring_system.score_series(self)
+
+
+class ScoringSystem:
+    def __init__(self, properties):
+        self._properties = properties
+        self._series = None
+
+    def score_series(self, series):
+        """Calculate scores and ranking for the series."""
+        self._series = series
+        self._score_boats()
+        self._rank_boats()
+
+    def _score_boats(self):
+        for boat in self._series.boats:
             self._realise_scores(boat)
             self._exclude_worst_scores(boat)
             self._calculate_series_scores(boat)
 
-    def rank_boats(self):
-        """Rank the boats, breaking any ties in scores according to RRS A8."""
-        ranked_boats = sorted(
-            self.boats,
-            key=self._ranking_key
-        )
-
-        for rank, boat in enumerate(ranked_boats, start=1):
-            self.boats[boat]['rank'] = rank
-
-    # TODO: make this ranking lazy
-    #       so the best result key
-    #       and the count-back key
-    #       are only computed if there is a tie.
-    def _ranking_key(self, boat):
-        score_key = self.boats[boat]['score']
-
-        # This implements RRS A8.1
-        # (tie breaking by best results)
-        best_result_key = sorted(
-            race['scores'][boat]['score']
-            for race in self.races
-            if race['scores'][boat]['include']
-        )
-
-        # This implements RRS A8.2
-        # (tie breaking by count-back)
-        countback_key = [
-            race['scores'][boat]['score']
-            for race in self.races[::-1]
-            # N.B. the rules say excluded scores are _included_ here.
-        ]
-
-        return (score_key, best_result_key, countback_key)
-
-    def _add_unseen_boats(self, races):
-        for race in races:
-            for boat in race['scores']:
-                self.boats.setdefault(boat, {})
-
     def _realise_scores(self, boat):
-        for race in self.races:
+        """Calculate the points value of each score."""
+        for race in self._series.races:
             race['scores'][boat].realise()
 
     def _exclude_worst_scores(self, boat):
@@ -140,7 +120,7 @@ class Series:
         """
         scores = [
             race['scores'][boat]
-            for race in self.races
+            for race in self._series.races
             # Only consider excludable scores.
             if race['scores'][boat].excludable
         ]
@@ -156,11 +136,46 @@ class Series:
         # if there are no included results
         # (which can happen after the first race of a series)
         # then sum() returns an int instead of a Decimal.
-        self.boats[boat]['score'] = _pt(sum(
+        self._series.boats[boat]['score'] = _pt(sum(
             race['scores'][boat]['score']
-            for race in self.races
+            for race in self._series.races
             if race['scores'][boat]['include']
         ))
+
+    def _rank_boats(self):
+        """Rank the boats, breaking any ties in scores according to RRS A8."""
+        ranked_boats = sorted(
+            self._series.boats,
+            key=self._ranking_key
+        )
+
+        for rank, boat in enumerate(ranked_boats, start=1):
+            self._series.boats[boat]['rank'] = rank
+
+    def _ranking_key(self, boat):
+        # TODO: make this ranking lazy
+        #       so the best result key
+        #       and the count-back key
+        #       are only computed if there is a tie.
+        score_key = self._series.boats[boat]['score']
+
+        # This implements RRS A8.1
+        # (tie breaking by best results)
+        best_result_key = sorted(
+            race['scores'][boat]['score']
+            for race in self._series.races
+            if race['scores'][boat]['include']
+        )
+
+        # This implements RRS A8.2
+        # (tie breaking by count-back)
+        countback_key = [
+            race['scores'][boat]['score']
+            for race in self._series.races[::-1]
+            # N.B. the rules say excluded scores are _included_ here.
+        ]
+
+        return (score_key, best_result_key, countback_key)
 
 
 class ScoringContext(abc.ABC):
