@@ -5,6 +5,7 @@ Library for scoring sailing events.
 import abc
 import decimal
 import functools
+import re
 import sys
 
 # Scores are always rounded to the nearest
@@ -32,11 +33,16 @@ def score(series):
 class Series:
     def __init__(self, scoring_system):
         self._scoring_system = scoring_system
+
         self.boats = {}
-        self._series_context = SeriesContext(self.boats)
+        self._scoring_system.set_series_context(SeriesContext(self.boats))
 
         self.races = []
         self._current_race_context = None
+
+    @property
+    def current_race_context(self):
+        return self._current_race_context
 
     def add_races(self, races):
         """Add races and give unseen boats DNC scores in other races."""
@@ -45,7 +51,9 @@ class Series:
         for race in races:
             race_result = {'scores': {}}
             self.races.append(race_result)
-            self._current_race_context = RaceContext(race_result['scores'])
+            self._scoring_system.set_race_context(
+                RaceContext(race_result['scores'])
+            )
 
             for boat in self.boats:
                 race_result['scores'][boat] = self.parse_score(
@@ -59,31 +67,27 @@ class Series:
 
     def parse_score(self, text):
         """Parse a score from a string."""
-        try:
-            return Finish(text)
-        except ValueError:
-            code = text
+        place_or_code, *penalties = str(text).split("+")
 
-        if code == 'DNC':
-            # The context for a DNC is always the series.
-            return DNC(self._series_context)
+        if re.match(r"\d(\.\d+)?", place_or_code):
+            if penalties:
+                # TODO: this does not permit mixing codes,
+                #       so won't work for a boat that receives
+                #       SCP and ZFP in the same race (x+SCP+ZFP)
+                return (
+                    self._scoring_system
+                    .get_score_for_code(penalties[0])
+                    .for_place(place_or_code)
+                    .for_infringements(len(penalties))
+                )
 
-        if code == "DNE":
-            return DNE(self._current_race_context)
-
-        if code == "DNF":
-            return DNF(self._current_race_context)
-
-        if code.endswith("+SCP"):
-            parts = code.split("+")
-            place = parts[0]
-            scp_count = parts.count("SCP")
             return (
-                SCP(self._current_race_context, place)
-                .for_infringements(scp_count)
+                self._scoring_system
+                .get_score_for_code("")
+                .for_place(place_or_code)
             )
 
-        raise ValueError(f"unknown scoring code {code!r}")
+        return self._scoring_system.get_score_for_code(place_or_code)
 
     def score_and_rank(self):
         """Score the series."""
@@ -94,6 +98,35 @@ class ScoringSystem:
     def __init__(self, properties):
         self._properties = properties
         self._series = None
+
+        self._series_context = None
+        self._race_context = None
+
+    def set_series_context(self, ctx):
+        self._series_context = ctx
+
+    def set_race_context(self, ctx):
+        self._race_context = ctx
+
+    def get_score_for_code(self, code):
+        if code == "":
+            return Finish()
+
+        if code == "DNC":
+            return DNC(self._series_context)
+
+        context = self._race_context
+
+        if code == "DNE":
+            return DNE(context)
+
+        if code == "DNF":
+            return DNF(context)
+
+        if code == "SCP":
+            return SCP(context)
+
+        raise ValueError(f"unknown scoring code {code!r}")
 
     def score_series(self, series):
         """Calculate scores and ranking for the series."""
@@ -280,16 +313,19 @@ class Score(abc.ABC):
 class Finish(Score):
     code = ""
 
-    def __init__(self, place):
+    def __init__(self):
         # A Finish does not need a context
         # because it does not depend on any properties
         # of the series or the race.
+        super().__init__(None)
+
+    def for_place(self, place):
         try:
-            value = _pt(place)
+            self._value = _pt(place)
         except decimal.InvalidOperation:
             raise ValueError("invalid finish score {place!r}")
 
-        super().__init__(None, value)
+        return self
 
     def realise(self):
         # Do nothing because the value was set directly.
@@ -298,10 +334,12 @@ class Finish(Score):
     def __repr__(self):
         return str(self._value)
 
+
 class NonFinish(Score):
     def realise(self):
         entries = self._context.entry_count
         self._value = _pt(entries + 1)
+
 
 class DNC(NonFinish):
     """Did Not Come to the starting area."""
@@ -323,15 +361,19 @@ class SCP(Finish):
     """Scoring Penalty imposed."""
     code = "SCP"
 
-    def __init__(self, context, place):
-        super().__init__(place)
+    def __init__(self, context):
+        super().__init__()
 
         # A Finish does not have a context,
         # but an SCP needs a context to know how many points
         # the penalty is worth.
         self._context = context
-        self._no_penalty_value = self._value
         self._infringements = 0
+
+    def for_place(self, place):
+        super().for_place(place)
+        self._no_penalty_value = self._value
+        return self
 
     def for_infringements(self, n):
         self._infringements = n
