@@ -93,8 +93,8 @@ The score for _DNC_ is the number of boats in the series, plus 1.
 ...     ]
 ... }
 >>> results = rrs.score(series)
->>> results['races'][1]['scores']['B']['code']
-'DNC'
+>>> results['races'][1]['scores']['B']
+<DNC:3.0>
 
 ```
 

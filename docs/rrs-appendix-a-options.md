@@ -64,11 +64,11 @@ and _C_ scores _DNC (4)_ in the second race.
 
 ```python
 >>> results = rrs.score(series)
->>> race_2_scores = results['races'][1]['scores']
->>> race_2_scores['B']['score']
-Decimal('3.0')
->>> race_2_scores['C']['score']
-Decimal('4.0')
+>>> scores = results['races'][1]['scores']
+>>> scores['B']
+<DNF:3.0>
+>>> scores['C']
+<DNC:4.0>
 
 ```
 
