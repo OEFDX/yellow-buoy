@@ -22,7 +22,10 @@ def _pt(value):
 
 
 def score(series):
-    result = Series(ScoringSystem(None))
+    scoring_system = ScoringSystem(
+        series.get("scoring-system", {})
+    )
+    result = Series(scoring_system)
 
     result.add_races(series['races'])
     result.score_and_rank()
@@ -102,6 +105,12 @@ class ScoringSystem:
         self._series_context = None
         self._race_context = None
 
+    def _context_for_dnf_etc(self):
+        if self._properties.get("rrs-a5.3"):
+            return self._race_context
+
+        return self._series_context
+
     def set_series_context(self, ctx):
         self._series_context = ctx
 
@@ -115,7 +124,7 @@ class ScoringSystem:
         if code == "DNC":
             return DNC(self._series_context)
 
-        context = self._series_context
+        context = self._context_for_dnf_etc()
 
         if code == "DNE":
             return DNE(context)
