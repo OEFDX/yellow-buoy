@@ -115,7 +115,7 @@ class ScoringSystem:
         if code == "DNC":
             return DNC(self._series_context)
 
-        context = self._race_context
+        context = self._series_context
 
         if code == "DNE":
             return DNE(context)
@@ -303,11 +303,7 @@ class Score(abc.ABC):
         return self._value == other._value
 
     def __repr__(self):
-        _repr = f"{self.code}({self._value})"
-        if self._include:
-            return _repr
-
-        return f"({_repr})"
+        return f"<{self.code}:{self._value}>"
 
 
 class Finish(Score):

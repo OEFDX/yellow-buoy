@@ -76,19 +76,45 @@ the boat with the lowest score also has the best (lowest) rank.
 Scoring codes are commonly used for a variety of reasons.
 Any result that is not a simple ‘finish’ is recorded using a code.
 
-### Did Not Start (DNS) / Finish (DNF) / etc.
+### Did Not Come to the starting area (DNC)
 
-Most scoring codes produce the same number of points:
-the number of boats in the series, plus 1.
-This is the case for the most obvious code: ‘DNF’ (Did Not Finish).
-Here, in a series with 2 boats, B’s _DNF_ is worth 3 points.
+_DNC_ is the default score for any boat that is not recorded in a race,
+but is recorded in one or more other races in the series.
+Although a boat _may_ explicitly be scored DNC,
+it is not necessary;
+it can simply be omitted from the input.
+The score for _DNC_ is the number of boats in the series, plus 1.
 
 ```python
->>> series = {'races': [{'scores': {'A': 1, 'B': 'DNF'}}]}
+>>> series = {
+...     'races': [
+...         {'scores': {'A': 1, 'B': 2}},
+...         {'scores': {'A': 1}},
+...     ]
+... }
 >>> results = rrs.score(series)
->>> b_score = results['races'][0]['scores']['B']
->>> b_score['code'], b_score['score']
-('DNF', Decimal('3.0'))
+>>> results['races'][1]['scores']['B']['code']
+'DNC'
+
+```
+
+### Did Not Finish (DNF) etc.
+
+Most scoring codes are worth equal points to a _DNC_.
+This is the case for _DNF_ as shown below.
+Here, in a series with 3 boats, B’s _DNF_ is worth 4 points,
+the same as C’s implicit _DNC_.
+
+```python
+>>> series = {'races': [
+...     {'scores': {'A': 1, 'B': 2, 'C': 3}},
+...     {'scores': {'A': 1, 'B': 'DNF'}},
+... ]}
+>>> results = rrs.score(series)
+>>> results['races'][1]['scores']['B']
+<DNF:4.0>
+>>> results['races'][1]['scores']['C']
+<DNC:4.0>
 
 ```
 
