@@ -28,7 +28,7 @@ def score(series):
     result = Series(scoring_system)
 
     result.add_races(series['races'])
-    result.score_and_rank()
+    scoring_system.score_series(result)
 
     return {'races': result.races, 'boats': result.boats}
 
@@ -91,10 +91,6 @@ class Series:
             )
 
         return self._scoring_system.get_score_for_code(place_or_code)
-
-    def score_and_rank(self):
-        """Score the series."""
-        self._scoring_system.score_series(self)
 
 
 class ScoringSystem:
