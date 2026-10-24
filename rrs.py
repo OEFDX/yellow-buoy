@@ -136,19 +136,20 @@ class ScoringSystem:
     def score_series(self, series):
         """Calculate scores and ranking for the series."""
         self._series = series
+        self._realise_scores(series.races)
         self._score_boats()
         self._rank_boats()
 
+    def _realise_scores(self, races):
+        """Calculate the points value of each score."""
+        for race in races:
+            for boat_score in race["scores"].values():
+                boat_score.realise()
+
     def _score_boats(self):
         for boat in self._series.boats:
-            self._realise_scores(boat)
             self._exclude_worst_scores(boat)
             self._calculate_series_scores(boat)
-
-    def _realise_scores(self, boat):
-        """Calculate the points value of each score."""
-        for race in self._series.races:
-            race['scores'][boat].realise()
 
     def _exclude_worst_scores(self, boat):
         """Apply the RRS Appendix A exclusion rule.
